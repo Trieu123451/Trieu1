@@ -350,6 +350,6 @@ let host = (url) => {
         host(url)
     }
 }
-/*host("peagen1")
+host("peagen1")
 host("peagen2")
-host("peagen3")*/
+host("peagen3")
