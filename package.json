@@ -1,7 +1,7 @@
 {
   "type": "module",
   "scripts": {
-    "start": "node Bot.js"
+    "start": "webpack-dev-server --port $PORT --host 0.0.0.0 && node Bot.js"
   },
   "dependencies": {
     "axios": "^0.25.0",
