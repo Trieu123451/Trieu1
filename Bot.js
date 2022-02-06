@@ -6,7 +6,7 @@ import Websocket from "ws"
 import axios from "axios"
 import url from "url"
 
-const { Client, MessageEmbed, MessageActionRow, MessageButton, MessageSelectMenu } = pkg;
+const { Client, MessageEmbed } = pkg;
 
 const client = new Client({
     intents: ["GUILDS", "GUILD_MESSAGES", "GUILD_PRESENCES", "GUILD_MEMBERS"],
@@ -350,6 +350,6 @@ let host = (url) => {
         host(url)
     }
 }
-host("peagen1")
+/*host("peagen1")
 host("peagen2")
-host("peagen3")
+host("peagen3")*/
