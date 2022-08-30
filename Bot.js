@@ -1,228 +1,498 @@
-import pkg from 'discord.js';
+﻿import pkg from 'discord.js';
 import cmddata from 'quick.db'
-import proxyAgent from "https-proxy-agent";
 import Create from "./Function/CreateBot.js"
-import Websocket from "ws"
-import axios from "axios"
-import url from "url"
 
 const { Client, MessageEmbed } = pkg;
-
+const devmode = false
 const client = new Client({
     intents: ["GUILDS", "GUILD_MESSAGES", "GUILD_PRESENCES", "GUILD_MEMBERS"],
     disableEveryone: true
 });
+let checkinterval;
+let serverid = ""
+let token = ""
+let updating = false
+let BotData
+let disabledcmd = []
+let restarted = 0
+cmddata.get(`84416519844165498416584165498165189165198416`) ? (BotData = cmddata.get(`84416519844165498416584165498165189165198416`)["gay"],restarted = 1) : BotData = []
+console.log(BotData)
+cmddata.set(`84416519844165498416584165498165189165198416`,{"gay": []})
+let min = 1000 * 60
+Array.prototype.ForEach = function (fact,time,time2) {
+    if(time && time2){
+        console.log(time,time2)
+        let tm = 0
+        for (var ia = 0; ia < time; ia++) {
+            for (var i = 0+tm; i < time2+tm; i++) {
+                fact(this[i],i)
+            }
+            tm += time2
+        }
+    }else{
+        for (var i = 0; i < this.length; i++) {
+            fact(this[i],i)
+        }
+    }
+}
+let tiertimer = (tier) => {
+    switch (Number(tier)) {
+        case 0: return 0
+        case 1:
+            return min * 30 // number of minutes tier 1? yes i'll go wc for  min k
+        case 2:
+            return min * 60
+        case 3:
+            return min * 90
+        case 4:
+            return min * 180
+        case 5:
+        case 6:return min * 360
+        case 7: return min*9999999
+            default:
+                return min*10
+    }
+}
+let tiercooldown = (tier) => {
+    switch (Number(tier)) {
+        case 0: return 0
+        case 1:
+            return min * 330 // number of minutes tier 1? yes i'll go wc for  min k
+        case 2:
+            return min * 300
+        case 3:
+            return min * 270
+        case 4:
+            return min * 240
+        case 5:
+            case 6:
+            return min * 30
+            case 7: return min*9999999
 
+            default: return 0
+    }
+}
+let canunblock = true
 client.on('ready', async () => {
     client.user.setActivity(`🌊Redirecting Boat🌊`)
     console.log(`${client.user.username} Loadded ✅`)
+    let serverlist = ''
+    client.guilds.cache.forEach((guild) => {
+        serverlist = serverlist.concat(" - " + guild.name + ": ID: " + guild.id + "\n")
+    })
+    console.log(serverlist)
 })
-
-client.on('messageCreate', async message => {
+//we gonna use quick.db for data store kk
+client.on("message", async (msg) => {
+    if (msg.guild.id !== "991333921910427689") return
     const prefix = "-"
-    const args = message.content.slice(prefix.length).trim().split(/ +/g);
-    const cmd = args.shift().toLowerCase();
-
-    let error = (Reason) => {
-        var error = new MessageEmbed()
-            .setTitle(`Pathfind Command Error`)
-            .setColor(`#ff0000`)
-            .setDescription(`**${Reason}**`)
-            .setFooter('Request By ' + message.author.tag, message.author.displayAvatarURL())
-        message.reply({ embeds: [error] })
-    }
-    let pathembed = (tier,time) => {
-        var error = new MessageEmbed()
-        .setTitle(`🌊SeaFarm Pathfind🌊`)
-        .setColor(`RANDOM`)
-        .setDescription(`Bot Started In **Seafarm**\nYou Are Tier **${tier}**\nYour Bot Will Stop In **${time}Minutes**`)
-        .setFooter('Request By ' + message.author.tag, message.author.displayAvatarURL())
-        message.reply({ embeds: [error] })
-    }
-    let pathembed2 = (tier) => {
-        var error = new MessageEmbed()
-        .setTitle(`🌊Unblocking Red🌊`)
-        .setColor(`RANDOM`)
-        .setDescription(`Bot Started In **Teammode**\nYou Are Tier **${tier}**\nYour Bot Will Stop In **${tier == 1 ? 30 : tier == 2 ? 60 : tier == 3 ? 90 : tier == 4 ? 180 : "Infinite"}Minutes**`)
-        .setFooter('Request By ' + message.author.tag, message.author.displayAvatarURL())
-        message.reply({ embeds: [error] })
-    }
-    let pathembed3 = (tier) => {
-        var error = new MessageEmbed()
-        .setTitle(`🌊Farming Red🌊`)
-        .setColor(`RANDOM`)
-        .setDescription(`Bot Started In **Teammode**\nYou Are Tier **${tier}**\nYour Bot Will Stop In **${tier == 1 ? 30 : tier == 2 ? 60 : tier == 3 ? 90 : tier == 4 ? 180 : "Infinite"}Minutes**`)
-        .setFooter('Request By ' + message.author.tag, message.author.displayAvatarURL())
-        message.reply({ embeds: [error] })
-    }
-    let checke = (perm) => {
-        if (message.member.permissions.has(perm) || message.member.permissions.has("ADMINISTRATOR")) {
+    const args = msg.content.slice(prefix.length).trim().split(/ +/g);
+    const cmd = args.shift().toLowerCase()
+    const check = (perm) => { // check permission replace perm with adminstartor? instead of member id ok ok
+        if (msg.member.permissions.has(perm) || msg.member.permissions.has("ADMINISTRATOR")) {
             return true
         } else {
             return false
         }
     }
+    let Embed = async (title, description) => {
+        try{
+            var embed = new MessageEmbed()
+            .setTitle(title)
+            .setColor(`RANDOM`)
+            .setDescription(`${description || "None"}`)
+            .setFooter('Request By ' + msg.author.tag, msg.author.displayAvatarURL())
+       await msg.reply({ embeds: [embed] }) // we need to work on same file? yes okt   
+        }catch(e){
+
+        }
+    }
+    let error = async (title, description) => {
+        try{
+            var embed = new MessageEmbed()
+            .setTitle(title)
+            .setColor(`#ff0000`)
+            .setDescription(`${description || "None"}`)
+            .setFooter('Request By ' + msg.author.tag, msg.author.displayAvatarURL())
+       await msg.reply({ embeds: [embed] }) // we need to work on same file? yes okt
+        }catch(e){
+
+        }
+    }
     switch (cmd) {
-        case `farmred`:
-            if (!cmddata.get(`${message.author.id}${message.guild.id}Tier`)) return error("You Are Not Allowed To Use Bot")
-            if (cmddata.get(`${message.author.id}${message.guild.id}pathcmd`) && cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).Actived == true) return error("You Already Have Running Bot")
-            if (cmddata.get(`${message.author.id}${message.guild.id}pathcmd`) && Date.now() - cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).Date < 21600000 && !checke("ADMINISTRATOR")) return error(`You Need Wait ${Math.floor((21600000 - (Date.now() - cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).Date)) / 60000)} Min Until Use Again`)
-
-            let Jsonaer = {
-                Date: Date.now(),
-                Actived: true,
-                Tier: Number(cmddata.get(`${message.author.id}${message.guild.id}Tier`))
+        case `unban`:
+            if(!check("BAN_MEMBERS")){
+                return error(`unban`,"You Dont Have Permission To Do That")
             }
-            let stoper = setTimeout(() => {
-                let pepaa = cmddata.get(`${message.author.id}${message.guild.id}pathcmd`)
-                if(pepaa) pepaa.Actived = false;
-                cmddata.set(`${message.author.id}${message.guild.id}pathcmd`, pepaa)
-                message.reply({ content: "Ur Bot Stopped" })
-            }, (Jsonaer.Tier == 1 ? 900000*2 : Jsonaer.Tier == 2 ? 3600000 : Jsonaer.Tier == 3 ? 5400000 : Jsonaer.Tier == 4 ? 10800000 : 5400000))
-            cmddata.set(`${message.author.id}${message.guild.id}pathcmd`, {
-                Date: Date.now(),
-                Actived: true,
-                Tier: Number(cmddata.get(`${message.author.id}${message.guild.id}Tier`))
-            })
-            pathembed3(cmddata.get(`${message.author.id}${message.guild.id}Tier`))
-            let getaea = () => {
-                axios.get("https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all").then(res => {
-                    const proxies = res.data.split("\r\n")
-                    let ma = setInterval(() => {
-                        if(cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).Actived == false) clearInterval(ma);
-                        for (var i = 0; i < 15; i++) {
-                            if(cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).Actived == false) break;
-                            const proxy = proxies[Math.floor(Math.random() * proxies.length)];
-                            const options = url.parse("http://" + proxy);
-                            const agent = new proxyAgent(options);
-                            new Create("Peanut#5066", `wss://frankfurt${Math.floor(Math.random() * 3)+1}.starve.io/server712`, "farmred", agent,Number(args[0]),Number(args[1]),message.author.id,message.guild.id)
-                        }
-                    }, 500)
-                })
+            if(!args[0]) return error("You Need To Specify Someone Id")
+            async function dae(){
+                const banList = await msg.guild.bans.fetch();
+                const bannedUser = banList.find(user => user.id === args[0]);
+                    bannedUser ? (await msg.guild.members.unban(args[0]),Embed("UnBan Cmd",`successfully UnBanned **<@${args[0]}>**`)) : Embed("UnBan Cmd",`That Member Is Not Banned`)
+                    
             }
-            getaea()
+            dae()
         break;
-        case `unblockred`:
-            if (!cmddata.get(`${message.author.id}${message.guild.id}Tier`)) return error("You Are Not Allowed To Use Bot")
-            if (cmddata.get(`${message.author.id}${message.guild.id}pathcmd`) && cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).Actived == true) return error("You Already Have Running Bot")
-            if (cmddata.get(`${message.author.id}${message.guild.id}pathcmd`) && Date.now() - cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).Date < 21600000 && !checke("ADMINISTRATOR")) return error(`You Need Wait ${Math.floor((21600000 - (Date.now() - cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).Date)) / 60000)} Min Until Use Again`)
+        case `ban`:
+            if(!check("BAN_MEMBERS")){
+                return error("You Dont Have Permission To Do That")
+            }
+                if (msg.mentions.members.first()) {
+                    if(!msg.mentions.members.first().bannable){
+                        error(`Ban`,`I don't have permissions to ban **${msg.mentions.members.first()}**`)
+                      //  msg.reply("I do not have permissions to ban " + msg.mentions.members.first());
 
-            let Jsonae = {
-                Date: Date.now(),
-                Actived: true,
-                Tier: Number(cmddata.get(`${message.author.id}${message.guild.id}Tier`))
-            }
-            let stope = setTimeout(() => {
-                let pepa = cmddata.get(`${message.author.id}${message.guild.id}pathcmd`)
-                if(pepa) pepa.Actived = false;
-                cmddata.set(`${message.author.id}${message.guild.id}pathcmd`, pepa)
-                message.reply({ content: "Ur Bot Stopped" })
-            }, (Jsonae.Tier == 1 ? 900000*2 : Jsonae.Tier == 2 ? 3600000 : Jsonae.Tier == 3 ? 5400000 : Jsonae.Tier == 4 ? 10800000 : 5400000))
-            cmddata.set(`${message.author.id}${message.guild.id}pathcmd`, {
-                Date: Date.now(),
-                Actived: true,
-                Tier: Number(cmddata.get(`${message.author.id}${message.guild.id}Tier`))
-            })
-            pathembed2(cmddata.get(`${message.author.id}${message.guild.id}Tier`))
-            let getae = () => {
-                axios.get("https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all").then(res => {
-                    const proxies = res.data.split("\r\n")
-                    let ma = setInterval(() => {
-                        if(cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).Actived == false) clearInterval(ma);
-                        for (var i = 0; i < 15; i++) {
-                            if(cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).Actived == false) break;
-                            const proxy = proxies[Math.floor(Math.random() * proxies.length)];
-                            const options = url.parse("http://" + proxy);
-                            const agent = new proxyAgent(options);
-                            new Create("Peanut#5066", `wss://frankfurt${Math.floor(Math.random() * 3)+1}.starve.io/server712`, "unblockred", agent,Number(args[0]),Number(args[1]),message.author.id,message.guild.id)
+                    }else{
+                        try {
+                            msg.mentions.members.first().ban();
+                            Embed("Ban Cmd",`successfully Banned **${msg.mentions.members.first()}**`)
+                        } catch {
+                            msg.reply("I do not have permissions to ban" + msg.mentions.members.first());
                         }
-                    }, 500)
-                })
-            }
-            getae()
+                    }
+                } else {
+                    msg.reply("You do not have permissions to ban" + msg.mentions.members.first());
+                }
         break;
-        case `pathfind`:
-            if (!cmddata.get(`${message.author.id}${message.guild.id}Tier`)) return error("You Are Not Allowed To Use Bot")
-            if (cmddata.get(`${message.author.id}${message.guild.id}pathcmd`) && cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).Actived == true) return error("You Already Have Running Bot")
-            if(cmddata.get(`${message.author.id}${message.guild.id}pathcmd`)){
-                let sta = cmddata.get(`${message.author.id}${message.guild.id}pathcmd`)
-                sta.msleft = (sta.msleft - (Date.now()-sta.Date))
-                cmddata.set(`${message.author.id}${message.guild.id}pathcmd`,sta)
-            }
-            if (cmddata.get(`${message.author.id}${message.guild.id}pathcmd`) && cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).msleft < 1 && Date.now() - cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).Det < 21600000 && !checke("ADMINISTRATOR")) return error(`You Need Wait ${Math.floor((21600000 - (Date.now() - cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).Det)) / 60000)} Min Until Use Again`)
-            if (!args[0]) return error("Please Specify A Position X")
-            if(isNaN(args[0])) return error("Position X Need To Be A Number")
-            if (!args[1]) return error("Error Please Specify A Position Y")
-            if(isNaN(args[1])) return error("Position Y Need To Be A Number")
-            let tia = Number(cmddata.get(`${message.author.id}${message.guild.id}Tier`))
-            let Jsona = {
-                Date: Date.now(),
-                Actived: true,
-                Tier: tia,
-                msleft: cmddata.get(`${message.author.id}${message.guild.id}pathcmd`) ? Number(cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).msleft) : tia == 1 ? 900000*2 : tia == 2 ? 3600000 : tia == 3 ? 5400000 : tia == 4 ? 10800000 : 5400000
-            }
-            let stop = setTimeout(() => {
-                let pepa = cmddata.get(`${message.author.id}${message.guild.id}pathcmd`)
-                pepa.Actived = false
-                cmddata.set(`${message.author.id}${message.guild.id}pathcmd`, pepa)
-                message.reply({ content: "Ur Bot Stopped" })
-            }, (cmddata.get(`${message.author.id}${message.guild.id}pathcmd`) ? cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).msleft : Jsona.Tier == 1 ? 900000*2 : Jsona.Tier == 2 ? 3600000 : Jsona.Tier == 3 ? 5400000 : Jsona.Tier == 4 ? 10800000 : 5400000))
-            if(!cmddata.get(`${message.author.id}${message.guild.id}pathcmd`)){
-                setTimeout(() => {
-                    cmddata.delete(`${message.author.id}${message.guild.id}pathcmd`)
-                },1000*60*60*6)
-            }
-            cmddata.set(`${message.author.id}${message.guild.id}pathcmd`, {
-                Det: cmddata.get(`${message.author.id}${message.guild.id}pathcmd`)? cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).Det : Date.now(),
-                Date: cmddata.get(`${message.author.id}${message.guild.id}pathcmd`)? cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).Date : Date.now(),
-                Actived: true,
-                x: Number(args[0]),
-                y: Number(args[1]),
-                Tier: Number(cmddata.get(`${message.author.id}${message.guild.id}Tier`)),
-                msleft: cmddata.get(`${message.author.id}${message.guild.id}pathcmd`) ? cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).msleft : Jsona.Tier == 1 ? 900000*2 : Jsona.Tier == 2 ? 3600000 : Jsona.Tier == 3 ? 5400000 : Jsona.Tier == 4 ? 10800000 : 5400000
-            })
-            pathembed(cmddata.get(`${message.author.id}${message.guild.id}Tier`),cmddata.get(`${message.author.id}${message.guild.id}pathcmd`)?(Math.floor(cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).msleft/1000/60)) : tia == 1 ? 30 : tia == 2 ? 60 : tia == 3 ? 90 : tia == 4 ? 180 : 9999)
-            let geta = () => {
-                axios.get("https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all").then(res => {
-                    const proxies = res.data.split("\r\n")
-                    let ma = setInterval(() => {
-                        if(cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).Actived == false) clearInterval(ma);
-                        for (var i = 0; i < 15; i++) {
-                            if(cmddata.get(`${message.author.id}${message.guild.id}pathcmd`).Actived == false) break;
-                            const proxy = proxies[Math.floor(Math.random() * proxies.length)];
-                            const options = url.parse("http://" + proxy);
-                            const agent = new proxyAgent(options);
-                            new Create("Peanut#5066", `wss://frankfurt${Math.floor(Math.random() * 3)+1}.starve.io/server711`, "seafarm", agent,message.author.id,message.guild.id)
-                        }
-                    }, 500)
-                })
-            }
-            geta()
+        case `settier${devmode == true? "dev" : ""}`: // ✅
+        if(updating == true){
+            return Embed("Bot","Updating Bot Please Try Again In Some Minutes")
+        }
+        if(devmode == true && !check("MANAGE_MESSAGES")&& !Number(msg.channel.id) == 941848519520690206){
+            return error("You Dont Have Permission To Do That")
+        }
+            if (!check("ADMINISTRATOR")) return error("SetTier", "**You Dont Have Permission To Do That**")
+            if (!args[1]) return error(`SetTier`, "**You Dont Specified Tier**")
+            if (isNaN(args[1])) return error(`SetTier`, "**Tier Must Be A Number**")
+            const member = msg.mentions.members.first() || msg.member // its better? no bc need this ${member.user.id}
+            if (!member) return error(`SetTier`, "**You Dont Specified A Member!**")
+            let buyed = msg.guild.roles.cache.find((r) => r.name === "<- Customer ->")
+            try {
+                let role = args[1] == 6 ? msg.guild.roles.cache.find(r => r.name === 'Tier 6') : args[1] == 5 ? msg.guild.roles.cache.find(r => r.name === 'Tier 5-$10 Exclusive (§6H Bot 9 min cooldown)') : args[1] == 4 ? msg.guild.roles.cache.find(r => r.name === 'Tier 4-$5 (§3H Bot 3 H cooldown)') : ""
+                if(member.roles.cache.find(r => r.name === 'Tier 6') || member.roles.cache.find(r => r.name === 'Tier 5-$10 Exclusive (§6H Bot 9 min cooldown)') || member.roles.cache.find(r => r.name === 'Tier 4-$5 (§3H Bot 3 H cooldown)')){
+                    member.roles.cache.find(r => r.name === 'Tier 6') ? member.roles.remove(member.roles.cache.find(r => r.name === 'Tier 6')).catch((er) => {}) : ""
+                    member.roles.cache.find(r => r.name === 'Tier 5-$10 Exclusive (§6H Bot 9 min cooldown)') ? member.roles.remove(member.roles.cache.find(r => r.name === 'Tier 5-$10 Exclusive (§6H Bot 9 min cooldown)')).catch((er) => {}) : ""
+                    member.roles.cache.find(r => r.name === 'Tier 4-$5 (§3H Bot 3 H cooldown)') ? member.roles.remove(member.roles.cache.find(r => r.name === 'Tier 4-$5 (§3H Bot 3 H cooldown)')).catch((er) => {}) : ""
+                }
+                cmddata.set(`${member.user.id}${msg.guild.id}Tier`, args[1])
+                member.roles.add(buyed).catch((er) => {})
+                if(role){
+                    member.roles.add(role).catch((er) => {})
+                }
+               // console.log(role,args[1])
+                Embed(`TierCheck`, `**${member.user.username}** Is Now Tier ${args[1]}`)
+            }catch(er){}
+            
             break;
-        case `setpos`:
-            if(!cmddata.get(`${message.author.id}${message.guild.id}pathcmd`)) return error("U Dont Have Running Bot")
-            let pogae = cmddata.get(`${message.author.id}${message.guild.id}pathcmd`)
-            pogae.x = Number(args[0]),pogae.y = Number(args[1])
-            cmddata.set(`${message.author.id}${message.guild.id}pathcmd`,pogae)
-            message.reply({content: `Changed Position To ${args[0]},${args[1]}`})
+        case `checktier${devmode == true? "dev" : ""}`: // ✅
+        if(updating == true){
+            return Embed("Bot","Updating Bot Please Try Again In Some Minutes")
+        }
+        if(devmode == true && !check("MANAGE_MESSAGES")&& !Number(msg.channel.id) == 941848519520690206){
+            return error("You Dont Have Permission To Do That")
+        }
+        try{
+            let member2 = msg.mentions.members.first() || msg.member // its better? no bc need this ${member.user.id}
+            if (!member2) return error(`CheckTier`, "**You Dont Specified A Member!**")
+            if (!cmddata.get(`${member2.user.id}${msg.guild.id}Tier`)) return error(`CheckTier`, "**This User Dont Have Tier**")
+            let tier = cmddata.get(`${member2.user.id}${msg.guild.id}Tier`)
+            let rolee = tier == 6 ? msg.guild.roles.cache.find(r => r.name === 'Tier 6') : tier == 5 ? msg.guild.roles.cache.find(r => r.name === 'Tier 5-$10 Exclusive (§6H Bot 9 min cooldown)') : tier == 4 ? msg.guild.roles.cache.find(r => r.name === 'Tier 4-$5 (§3H Bot 3 H cooldown)') : ""
+            member2.roles.add(rolee).catch((er) => {})
+            let buyed2 = msg.guild.roles.cache.find((r) => r.name === "<- Customer ->")
+            member2.roles.add(buyed2).catch((er) => {})
+
+            Embed(`TierCheck`, `**${member2.user.username}** Is Tier ${tier}`)
+        }catch(er){}
+            break; // back
+        case `blacklist`:
+            if(updating == true){
+                return Embed("Bot","Updating Bot Please Try Again In Some Minutes")
+            }
+            if(!check("ADMINISTRATOR")) return error("You Dont Have Permission To Do That")
+            if(!args[0]) return error("You Need Specify Which Server need to be blacklisted")
+            args.ForEach(async (serv) => {
+                Create.blacklist(serv)
+               await Embed("Blacklist","Blacklisted Server "+serv)
+            })
         break;
-        case `clear`:
-        case `purge`:
-            if (!checke("MANAGE_MESSAGES")) return error("You Dont Have Permission To Do That")
-            const memberar = message.mentions.members.first();
+        case `setpos${devmode == true? "dev" : ""}`:
+            if(updating == true){
+                return Embed("Bot","Updating Bot Please Try Again In Some Minutes")
+            }
+            if(devmode == true && !check("MANAGE_MESSAGES")&& !Number(msg.channel.id) == 941848519520690206){
+                return error("You Dont Have Permission To Do That")
+            }
+            if (!cmddata.get(`${msg.member.user.id}${msg.guild.id}Tier`) || cmddata.get(`${msg.member.user.id}${msg.guild.id}Tier`) < 1) return error("Bot Start", `You Dont Have Permissions To Bot!`)
+            if (!args[0]) return error(`Change Data`, `You Need Specify The Position X`)
+            if (!args[1]) return error(`Change Data`, `You Need Specify The Position Y`)
+            for (var i = 0; i < BotData.length; i++) {
+                let ProData = BotData[i]
+                if (ProData !== null) {
+                    if (ProData.ID == msg.member.user.id) {
+                        ProData.Bot.Pathfind.x = args[0]? Number(args[0]) : 0, ProData.Bot.Pathfind.y = args[1]? Number(args[1]):0
+                        return Embed(`🚇Sea Farm🚇`, `\n\nBot Changed Pos To\n\nPosition X: **${ProData.Bot.Pathfind.x}**\nPosition Y: **${ProData.Bot.Pathfind.y}**`)
+                    }
+                }
+            }
+            break;
+        case `botlb`:
+            if(updating == true){
+                return Embed("Bot","Updating Bot Please Try Again In Some Minutes")
+            }
+            let bots = ""
+            let count = Math.floor(BotData.length/5)+1
+                console.log(BotData)
+                BotData.ForEach((bot,leng,po) => {
+                    let fals = 0
+                    if(bot && bot.Bot){
+                        bots+= `[${bot.Bot && bot.Bot.Actived == true ? "✔" : "❌"}] <@${bot.ID}> Is Botting with mode **${bot.Bot.Mode}** ${bot.Bot.Mode == "pathfind" || bot.Bot.Mode == "pathfinder" ? `at Position X: **${bot.Bot.Pathfind.x}**, Y: **${bot.Bot.Pathfind.y}** In **Sea Farm**` : bot.Bot.Mode == "farmred" || bot.Bot.Mode == "farmblue" || bot.Bot.Mode == "unblockred" || bot.Bot.Mode == "unblockblue" ? `In **Teammode**` : `In **${bot.Bot.pogaerf}**`}`+"\n"
+                    }else{
+                        fals--
+                    }
+                    if(leng+fals%5 === 0 && leng+fals !== 0 || leng == BotData.length-1){
+                        Embed("Botting Players:",bots)
+                        console.log(bots)
+                        console.log("Stopped At: ",leng)
+                        bots = ""
+                    }
+                },count,5) 
+            
+        break;
+        case `glitchtoken`: case "glitch":
+            if(updating == true){
+                return Embed("Bot","Updating Bot Please Try Again In Some Minutes")
+            }
+            if(!check("ADMINISTRATOR")) return error("You Dont Have Permission To Do That")
+            if(!args[0]) return error("You Need Specify Token To 'Glitch'")
+            Create.glitchtoken(args[0])
+            return Embed("Bot",`Added Token: ${args[0]} To Glitched Token`)
+        break;
+        case `bot${devmode == true? "dev" : ""}`:
+            if(updating == true){
+                return Embed("Bot","Updating Bot Please Try Again In Some Minutes")
+            }
+            if(devmode == true && !check("ADMINISTRATOR") && !Number(msg.channel.id) == 941848519520690206){
+                return error("You Dont Have Permission To Do That")
+            }
+            if (!cmddata.get(`${msg.member.user.id}${msg.guild.id}Tier`) || cmddata.get(`${msg.member.user.id}${msg.guild.id}Tier`) < 1) return error("Bot Start", `You Dont Have Permissions To Bot!`)
+            if (!args[0]) return error(`Bot Command`, `You Need To Specify A Mode (Pathfind,Farmred,Unblockred,hg,score,juice,full)`)
+            args[0] = args[0].toLocaleLowerCase()
+            if (args[0] == "full") if(Number(cmddata.get(`${msg.member.user.id}${msg.guild.id}Tier`)) < 5) return error("Bot Start Score","You Need Tier 5+ To Use This")
+            if(args[0] == "score" || args[0] == "juice" || args[0] == "book" || args[0] == "target" ) if(Number(cmddata.get(`${msg.member.user.id}${msg.guild.id}Tier`)) !== 6 && Number(cmddata.get(`${msg.member.user.id}${msg.guild.id}Tier`)) !== 7) return error("Bot Start Score","You Need Tier 6 To Use This")
+            if (args[0] == "pathfind" && !args[1] || args[0] == "pathfinder" && !args[1]) return error(`Bot Command`, `You Need To Specify Position X`)
+            if (args[0] == "pathfind" && !args[2] || args[0] == "pathfinder" && !args[2]) return error(`Bot Command`, `You Need To Specify Position Y`)
+            if(args[0] == "pathfind" && args[2] == 0) return error("You Cant Do That","-_-")
+            if (args[0] == "pathfind" && args[3] && !args[4]) return error(`Bot Command`, `You Need To Specify The Chest Owner Id`)
+            if(args[0] == "unblockred" || args[0] == "unblockblue"){
+                if(canunblock == false){
+                    return error("Unblock Command","Command Is Disabled By Buyer 🤡")
+                }
+            }
+            console.log(args)
+            for (var i = 0; i < BotData.length; i++) {
+                let opmath = BotData[i]
+                if (opmath !== null) {
+                    if (opmath.ID == msg.author.id) {
+                        if (opmath.Cooldowned == true) return (console.log(opmath.Finish - Date.now() / 1000 / 60),error(`BotStart`, `You Need Wait Until Your Cooldown Finish\n**${(opmath.Finish-Date.now()) / 1000 / 60}** Minutes Left`))
+                        if (opmath.Bot && opmath.Bot.Actived == true) return error(`BotStart`, `Your Bot Already On`)
+                        let NewBot = new Create(null, `${ args[0] == "score" ? args[2] : args[0] == "hunt" || args[0] == "follow" || args[0] == "target" ? args[1] : args[3]}`, args[0], { Path: args[0] == "farmred" || args[0] == "unblockred" || args[0] == "farmblue" || args[0] == "unblockblue" ? args[1] : 3,x: args[1] ? args[1] : "None", y: args[2] ? args[2] : "None",Tok1: args[4] ? args[4]: "None",lol: args[1] ? args[1] : 1,Tok2:args[5] ? args[5] : "None",TargetId: (args[0] == "hunt" || args[0] == "kill" || args[0] == "follow" || args[0] == "target" ? args[0] == "kill" ? args[1] : args[2] : "")}) // let's speedrun
+                        Create.addbot(NewBot)
+                        let LogicJson = {
+                            Start: Date.now(),
+                            Finish: opmath.CooldownMath == 0 ? opmath.Finish : Date.now() + opmath.CooldownMath,
+                            Bot: NewBot,
+                            ID: msg.author.id,
+                            Reply: Embed,
+                            stopall: false,
+                            Cooldowned: false,
+                            Tier: cmddata.get(`${msg.member.user.id}${msg.guild.id}Tier`),
+                            CooldownMath: 0
+                        }
+                        BotData[i] = LogicJson
+                        return Embed(`🚇${args[0]}🚇`, `\n\nBot Started In **${args[0]}**\nYou Are Tier **${LogicJson.Tier}**\nYour Bot Will Stop In **${Math.floor(((LogicJson.Finish - Date.now()) / 1000) / 60)}** Minutes\n\n${args[0] == "pathfind" ? `Position X: **${args[1]}**\nPosition Y: **${args[2]}**`: args[0] == "full" || args[0] == "book" || args[0] == "juice" ? `Position X: **${args[1]}**\nPosition Y: **${args[2]}**\nServer: **${LogicJson.Bot.serv}**` : args[0] == "score" ? `Token: **${args[1]}** 🎫` : ``}`)
+                    }
+                }
+            }
+            let NewBot = new Create(null, `${args[0] == "score" ? args[2] : args[0] == "hunt"|| args[0] == "follow" || args[0] == "target" ? args[1] : args[3]}`, args[0], { Path: args[0] == "farmred" || args[0] == "unblockred" || args[0] == "farmblue" || args[0] == "unblockblue" ? args[1] : 3,x: args[1] ? args[1] : "None",lol: args[1] ? args[1] : 1, y: args[2] ? args[2] : "None",Tok1: args[4] ? args[4]: "None",Tok2:args[5] ? args[5] : "None",TargetId: (args[0] == "hunt" || args[0] == "kill" || args[0] == "follow" || args[0] == "target" ? args[0] == "kill" ? args[1] : args[2] : "")}) // let's speedrun
+            let LogicJson = {
+                Start: Date.now(),
+                Finish: Date.now() + tiertimer(cmddata.get(`${msg.member.user.id}${msg.guild.id}Tier`)),
+                Bot: NewBot,
+                ID: msg.author.id,
+                Reply: Embed,
+                stopall: false,
+                Cooldowned: false,
+                Tier: cmddata.get(`${msg.member.user.id}${msg.guild.id}Tier`),
+                CooldownMath: 0
+            }
+            BotData.push(LogicJson)
+            Create.addbot(NewBot)
+            return Embed(`🚇${args[0]}🚇`, `\n\nBot Started In **${args[0]}**\nYou Are Tier **${LogicJson.Tier}**\nYour Bot Will Stop In **${Math.floor(((LogicJson.Finish - Date.now()) / 1000) / 60)}** Minutes\n\n${args[0] == "pathfind" ? `Position X: **${args[1]}**\nPosition Y: **${args[2]}**`: args[0] == "full" || args[0] == "book" || args[0] == "juice" ? `Position X: **${args[1]}**\nPosition Y: **${args[2]}**\nServer: **${LogicJson.Bot.serv}**` : args[0] == "score" ? `Token: **${args[1]}** 🎫` : ``}`)
+            break;
+        case `help`:
+            return Embed(`Help 💚`,`**Tier 1-6:**\n-checktimer\n!checktier\n-SeaFarm 🌊\n!setpos x y (change position)\n!bot pathfind x y\n-Teammode 🚧\n!bot farmred Path\n!bot unblockred Path\n!bot farmblue Path\n!bot unblockblue Path\n\n**Tier 6:**\n-AllServer\n!bot score token server\n!bot full x y server\n!bot book x y server acc-token acc-token-session\n!bot juice x y server\n\n-Servers 📜\neu(1-4)\nna(1-4)\nas(2-3)\nwa\nau1\nfeu1\nfna1\nfas1\nveu1\nvna1\nvas1\nzeu1\nzna1\nzas1`)
+        break;
+        case `settarget`:
+            let memberateto = msg.member
+            for (var i = 0; i < BotData.length; i++) {
+                let ProData = BotData[i]
+                if (ProData !== null) {
+                    if (ProData.ID == memberateto.user.id && ProData.Bot && ProData.Bot.TargetId) {
+                        ProData.Bot.TargetId = Number(args[0])
+                        Embed(`ChangeTarget`,`Setted Target To **${args[0]}**`)
+                    }
+                }
+            }
+        break;
+        case `save`:
+            if (!check("ADMINISTRATOR")) return error("Save", "**You Dont Have Permission To Do That**")
+            for (var i = 0; i < BotData.length; i++) {
+                let ProData = BotData[i]
+                if (ProData !== null) {
+                    try{
+                        ProData.Bot = null
+                        ProData.stopall = true
+                        ProData.CooldownMath == 0 ?ProData.CooldownMath += ProData.Finish - Date.now() : ""
+                        let ar = cmddata.get(`84416519844165498416584165498165189165198416`)
+                        ar["gay"].push(ProData)
+                        cmddata.set(`84416519844165498416584165498165189165198416`,ar)
+                    }catch(e){
+
+                    }
+                }
+            }
+            
+        break;
+        case `forcerestart`:
+            if (!check("ADMINISTRATOR")) return error("Restart", "**You Dont Have Permission To Do That**")
+            for (var i = 0; i < BotData.length; i++) {
+                let ProData = BotData[i]
+                if (ProData !== null) {
+                    ProData.Bot = null
+                    ProData.stopall = true
+                    ProData.CooldownMath == 0 ?ProData.CooldownMath += ProData.Finish - Date.now() : ""
+                    let ar = cmddata.get(`84416519844165498416584165498165189165198416`)
+                    ar["gay"].push(ProData)
+                    cmddata.set(`84416519844165498416584165498165189165198416`,ar)
+                }
+            }
+            for (var i = 0; i < BotData.length; i++) {
+                let ProData = BotData[i]
+                if (ProData !== null) {
+                    try{
+                       await ProData.Reply(`💥Admin💥`,`💫**Restarting Bot For Test Or Update!**💫`)
+                    }catch(e){
+
+                    }
+                }
+                if(i == BotData.length-1){
+                    process.exit(0)
+                }
+            }
+            
+        break;
+        case `canblock`:
+            if(updating == true){
+                return Embed("Bot","Updating Bot Please Try Again In Some Minutes")
+            }
+            if (!check("ADMINISTRATOR")) return error("Unblock Command", "**You Dont Have Permission To Do That**")
+            canunblock = !canunblock
+            return Embed(`CanUnblock`, `Unblock Command is Now ${canunblock ? "Enabled ✅" : "Disabled ❌"}`)
+        break;
+        case `updating`:
+            if (!check("ADMINISTRATOR")) return error("Update Command", "**You Dont Have Permission To Do That**")
+            updating = !updating
+            return Embed(`Bot`, `Updating...`)
+        break;
+        case `stopbot${devmode == true? "dev" : ""}`:
+            if (!cmddata.get(`${msg.member.user.id}${msg.guild.id}Tier`) || cmddata.get(`${msg.member.user.id}${msg.guild.id}Tier`) < 1) return error("Bot Start", `You Dont Have Permissions To Bot!`)
+            let memberat = check("MANAGE_MESSAGES") ? msg.mentions.members.first() || msg.member : msg.member
+            for (var i = 0; i < BotData.length; i++) {
+                let ProData = BotData[i]
+                if (ProData !== null) {
+                    if (ProData.ID == memberat.user.id) {
+                        if (ProData.Bot && ProData.Bot.Actived == true) {
+                            clearInterval(ProData.Bot.inta)
+                            ProData.Bot.Actived = false
+                            ProData.stopall = true
+                            ProData.Bot = null
+                            ProData.CooldownMath = ProData.Finish - Date.now()
+                            return Embed(`Stop Bot`, `**Your Bot Is Now**: ❌\nTime Before Cooldown: **${Math.floor(ProData.CooldownMath / 1000 / 60)}**Minutes`)
+                        } else {
+                            return error("Stop Bot", `Ur Bot Is Already Disabled;-;`)
+                        }
+                    }
+                }
+            }
+           // return error("Stop Bot", `You Dont HAVE rUUNNIG BOT `)
+            break;
+        case `checktimer${devmode == true? "dev" : ""}`:
+            let memberatet = msg.mentions.members.first() || msg.member
+            for (var i = 0; i < BotData.length; i++) {
+                let ProData = BotData[i]
+                if (ProData !== null) {
+                    if (ProData.ID == memberatet.user.id) {
+                        if (ProData.Cooldowned == false) {
+                            Embed(`Check Timer`, `**${memberatet.user.username}** Have Again **${Math.floor((ProData.Finish - Date.now()) / 1000 / 60)}** Minutes Before Cooldown Start`)
+                        } else {
+                            Embed(`Check Timer`, `**${memberatet.user.username}** Have Again **${Math.floor((ProData.Finish - Date.now()) / 1000 / 60)}** Minutes Before Cooldown Stop`)
+                        }
+                    }
+                }
+            }
+            break;
+        case `checkscore`:
+            let memberatete = msg.mentions.members.first() || msg.member
+            for (var i = 0; i < BotData.length; i++) {
+                let ProData = BotData[i]
+                if (ProData !== null) {
+                    if (ProData.ID == memberatete.user.id) {
+                        if(!ProData.Bot || !ProData.Bot.score) return
+                        if (ProData.Cooldowned == false) {
+                            Embed(`Check Score`, `**${memberatete.user.username}** Have **${ProData.Bot.score/1000}**k Score`)
+                        } else {
+                            Embed(`Check Score`, `**${memberatete.user.username}** Have **${ProData.Bot.score/1000}**k Score`)
+                        }
+                    }
+                }
+            }
+        break;
+        case `cleardata${devmode == true? "dev" : ""}`:
+            if (!check("ADMINISTRATOR")) return error("Clear Data", "**You Dont Have Permission To Do That**")
+            let memberateter = msg.mentions.members.first() || msg.member
+            for (var i = 0; i < BotData.length; i++) {
+                let ProData = BotData[i]
+                if (ProData !== null) {
+                    if (ProData.ID == memberateter.user.id) {
+                        ProData = null
+                        BotData[i] = null
+                        Embed(`Clear Data`, `Cleared **${memberateter.user.username}** Data`)
+                    }
+                }
+            }
+            break;
+        case `cleartoken${devmode == true? "dev" : ""}`:
+            if (!check("ADMINISTRATOR")) return error("U DONT HAVE PERM TO DO THAT");
+            Create.deleteall()
+            msg.reply("Deleted All Tokens")
+            break;
+        case `clear${devmode == true? "dev" : ""}`:
+        case `purge${devmode == true? "dev" : ""}`:
+            if (!check("MANAGE_MESSAGES")) return error("You Dont Have Permission To Do That")
+            const memberar = msg.mentions.members.first();
             let msgsize = 0
             let time = 0
-            const messages = message.channel.messages.fetch();
+            const messages = msg.channel.messages.fetch();
             if (memberar) {
                 const userMessages = (await messages).filter((m) => m.author.id === memberar.id);
-                await message.channel.bulkDelete(userMessages);
+                await msg.channel.bulkDelete(userMessages);
                 const embed15 = new MessageEmbed()
-                    .setTitle(`${message.author.username}`)
+                    .setTitle(`${msg.author.username}`)
                     .setURL('https://www.youtube.com/channel/UCKeSpcjhUk9j7ebE_2iekgA')
                     .setDescription(`Successfully Deleted ${member} Messages`)
-                    .setFooter('Request By ' + message.author.tag, message.author.displayAvatarURL())
+                    .setFooter('Request By ' + msg.author.tag, msg.author.displayAvatarURL())
                     .setColor(`RANDOM`);
-                await message.channel.send(embed15)
+                await msg.channel.send(embed15)
             } else {
                 if (!args[0]) { return error(`**Clear Command :**\n\n`, "Please Enter A Number Between 1 and 100") }
                 let deleteAmount;
@@ -237,119 +507,75 @@ client.on('messageCreate', async message => {
                 }
                 let msgsize = 0
                 if (time == 0 || time == 1 && time2 == null) {
-                    await message.channel.bulkDelete(deleteAmount + 1, true).then(mesg => {
+                    await msg.channel.bulkDelete(deleteAmount + 1, true).then(mesg => {
                         msgsize += mesg.size
                         const embeda = new MessageEmbed()
-                            .setTitle(`${message.author.username}`)
+                            .setTitle(`${msg.author.username}`)
                             .setURL('https://www.youtube.com/channel/UCKeSpcjhUk9j7ebE_2iekgA')
                             .setDescription(`Successfully Deleted **${msgsize - 1}/100** Messages`)
-                            .setFooter('Request By ' + message.author.tag, message.author.displayAvatarURL())
+                            .setFooter('Request By ' + msg.author.tag, msg.author.displayAvatarURL())
                             .setColor(`RANDOM`);
-                        message.channel.send({ embeds: [embeda] }).then(m => m.delete({ timeout: 1000 }))
+                        msg.channel.send({ embeds: [embeda] }).then(m => m.delete({ timeout: 1000 }))
                         msgsize = 0
                         //console.log(msgsize)
                     })
                 } else {
                     for (var ei = 1; ei < time; ei++) {
                         if (ei == time - 1) {
-                            await message.channel.bulkDelete(100, true).then(mesg => {
+                            await msg.channel.bulkDelete(100, true).then(mesg => {
                                 msgsize += mesg.size
-                                message.channel.bulkDelete(time2, true).then(mesg1 => {
+                                msg.channel.bulkDelete(time2, true).then(mesg1 => {
                                     msgsize += mesg1.size
                                     const embeda = new MessageEmbed()
-                                        .setTitle(`${message.author.username}`)
+                                        .setTitle(`${msg.author.username}`)
                                         .setURL('https://www.youtube.com/channel/UCKeSpcjhUk9j7ebE_2iekgA')
                                         .setDescription(`Successfully Deleted **${msgsize - 1}/100** Messages`)
-                                        .setFooter('Request By ' + message.author.tag, message.author.displayAvatarURL())
+                                        .setFooter('Request By ' + msg.author.tag, msg.author.displayAvatarURL())
                                         .setColor(`RANDOM`);
                                     const embed5122 = new MessageEmbed()
                                         .setTitle(`Logs`)
                                         .setURL('https://www.youtube.com/channel/UCKeSpcjhUk9j7ebE_2iekgA')
-                                        .setDescription(`**${message.author.tag}** Deleted **${msgsize - 1}/100** Messages in **${message.channel.name}**`)
-                                        .setFooter('Request By ' + message.author.tag, message.author.displayAvatarURL())
+                                        .setDescription(`**${msg.author.tag}** Deleted **${msgsize - 1}/100** Messages in **${msg.channel.name}**`)
+                                        .setFooter('Request By ' + msg.author.tag, msg.author.displayAvatarURL())
                                         .setColor(`RANDOM`);
-                                    message.channel.send({ embeds: [embeda] }).then(m => m.delete({ timeout: 1000 }))
+                                    msg.channel.send({ embeds: [embeda] }).then(m => m.delete({ timeout: 1000 }))
                                     msgsize = 0
                                     //console.log(msgsize)
                                 })
                             })
                         } else {
-                            await message.channel.bulkDelete(100, true).then(mesg => {
+                            await msg.channel.bulkDelete(100, true).then(mesg => {
                                 msgsize += mesg.size
                             })
                         }
                     }
                 }
             }
-        break;
-        case `settier`:
-            if (!checke("ADMINISTRATOR")) return error("You Dont Have Permission To Set Tier")
-            if (!args[1]) return error("Please Specify A Tier")
-            if (isNaN(args[1])) return error("Tier Must Be A Number")
-            let membere = message.mentions.members.first();
-            if (!membere) return error("Please Specify a Member")
-            cmddata.set(`${membere.user.id}${message.guild.id}Tier`, args[1])
-            message.reply({ content: `Setted ${membere.user.username} To Tier ${args[1]}` })
-            break;
-        case `checktier`:
-            if (!checke("ADMINISTRATOR")) return error("You Dont Have Permission To Check Tier")
-            let member = message.mentions.members.first();
-            if (!member) return error("Please Specify a Member")
-            message.reply({ content: `${member.user.username} Is Tier ${cmddata.get(`${member.user.id}${message.guild.id}Tier`)}` })
-            break;
-        case `stopbot`:
-            if (!checke("ADMINISTRATOR")) {
-                if (!cmddata.get(`${message.author.id}${message.guild.id}Tier`)) return error("You Are Not Allowed To Use Bot")
-                let tier = cmddata.get(`${message.author.id}${message.guild.id}Tier`)
-                let dat = cmddata.get(`${message.author.id}${message.guild.id}pathcmd`)
-                if(!dat) return error("No Running Bot For This Player")
-                let time = (dat.msleft-(Date.now()-dat.Date))
-                dat.Actived = false
-                dat.msleft = time
-                cmddata.set(`${message.author.id}${message.guild.id}pathcmd`, dat)
-                message.reply({ content: `Stopped Your Bot\nYou Can Bot Again ${Math.floor((time/1000)/60)}minutes before Cooldown` })
-            } else {
-                let membera = message.mentions.members.first();
-                if (!membera) return error("Please Specify a Member")
-                let tiere = cmddata.get(`${membera.user.id}${message.guild.id}Tier`)
-                let datea = cmddata.get(`${membera.user.id}${message.guild.id}pathcmd`)
-                let timee = (Number(datea.msleft)-(Date.now()-datea.Date))
-                datea.Actived = false
-                datea.msleft = timee
-                cmddata.set(`${membera.user.id}${message.guild.id}pathcmd`, datea)
-                console.log(timee)
-                message.reply({ content: `Stopped ${membera.user.username} Bot\nHe Can Bot Again ${Math.floor((Number(timee)/1000)/60)}minutes before Cooldown` })
-            }
-            break;
-        case `cleardata`:
-            if (!checke("ADMINISTRATOR")) return error("You Dont Have Permission To Clear Data")
-            let memberera = message.mentions.members.first()
-            if (!memberera) return error("Please Specify a Member")
-
-            cmddata.delete(`${memberera.user.id}${message.guild.id}pathcmd`)
-            message.reply({ content: `Cleared ${memberera.user.username} DATA` })
-
             break;
     }
 })
-client.login("OTM5NTg3OTE2MzExNzExOTI2.Yf7Bbw.leV1ldBGJbSmp5cIGD8zoSffVoY");
-let host = (url) => {
-    try{
-        let ws = new Websocket(`wss://${url}.herokuapp.com`)
-        ws.on('open', () => {
-            console.log("✅ Started Socket")
-        })
-        ws.on("message", msg => {
-            let msge = Buffer.from(new Uint8Array(msg)).toString();
-            Create.addtoken(msge)
-        })
-        ws.on('close', () => {
-            host(url)
-        })   
-    }catch(e){
-        host(url)
+checkinterval = setInterval(() => {
+    for (var i = 0; i < BotData.length; i++) {
+        let data = BotData[i]
+        if (data !== null) {
+            if (data.stopall == false) {
+                if (data.Finish - Date.now() <= 0) { // ok?
+                    data.Bot.Actived = false
+                    data.Cooldowned = true
+                    data.stopall = true
+                    data.Finish += tiercooldown(data.Tier)
+                    data.Reply(`Bot`, `**Stopped** Your Bot (**Cooldown**)\nYour Cooldown Will Finish In **${Math.floor(((data.Finish - Date.now()) / 1000) / 60)}** Minutes`)
+                }
+            } else if (data.Cooldowned) {
+                if (data.Finish - Date.now() <= 0) {
+                    console.log("Cooldown Finished")
+                    data.Reply(`Bot`, `Your Cooldown Finished`)
+                    data.Cooldowned = false
+                    data = null
+                    BotData[i] = null
+                }
+            }
+        }
     }
-}
-host("peagen1")
-host("peagen2")
-host("peagen3")
+}, 500)
+client.login('OTkwNjg3NTc3NTQ5OTc5Njg5.GlszlJ.hHGrBmVsN4pn04J3Q4r2NyVu4UkwI4b6as-y2M');
